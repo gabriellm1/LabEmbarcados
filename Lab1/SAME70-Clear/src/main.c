@@ -60,7 +60,7 @@ void init(void)
   // Initialize the board clock
   sysclk_init();
   
-  // Desativa WatchDog Timer
+  // Desativa WatchDog Timer (cao de guarda, se esta travado reinicia
   WDT->WDT_MR = WDT_MR_WDDIS;
   
   // Ativa o PIO na qual o LED foi conectado

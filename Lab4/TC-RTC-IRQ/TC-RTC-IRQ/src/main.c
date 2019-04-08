@@ -26,7 +26,7 @@
 #define LED_PIN_MASK   (1<<LED_PIN)
 
 /**
-* Botï¿½o
+* Botão
 */
 #define BUT_PIO_ID			  ID_PIOA
 #define BUT_PIO				  PIOA
@@ -69,7 +69,7 @@ void TC1_Handler(void){
 	volatile uint32_t ul_dummy;
 
 	/****************************************************************
-	* Devemos indicar ao TC que a interrupï¿½ï¿½o foi satisfeita.
+	* Devemos indicar ao TC que a interrupção foi satisfeita.
 	******************************************************************/
 	ul_dummy = tc_get_status(TC0, 1);
 
@@ -95,20 +95,33 @@ void RTC_Handler(void)
 	*/
 	if ((ul_status & RTC_SR_SEC) == RTC_SR_SEC) {
 		rtc_clear_status(RTC, RTC_SCCR_SECCLR);
+		
+		if(flag_led0==1){
+			flag_led0=0;
+			rtc_get_time(&HOUR,&MINUTE,&SECOND);
+			rtc_set_time_alarm(RTC, 1, HOUR, 1, MINUTE, 1, SECOND+10);// set wait time
+			tc_start(TC0,1);
+		}
+		else if(flag_led0==0){
+			flag_led0=1;
+			rtc_get_time(&HOUR,&MINUTE,&SECOND);
+			rtc_set_time_alarm(RTC, 1, HOUR, 1, MINUTE, 1, SECOND+10);// set wait time
+			tc_stop(TC0,1);
+		}
 	}
-
+	
 	/* Time or date alarm */
 	if ((ul_status & RTC_SR_ALARM) == RTC_SR_ALARM) {
 			rtc_clear_status(RTC, RTC_SCCR_ALRCLR);
 
 			flag_led0 = 0;
 	}
-
+	
 	rtc_clear_status(RTC, RTC_SCCR_ACKCLR);
 	rtc_clear_status(RTC, RTC_SCCR_TIMCLR);
 	rtc_clear_status(RTC, RTC_SCCR_CALCLR);
 	rtc_clear_status(RTC, RTC_SCCR_TDERRCLR);
-
+	
 }
 
 
@@ -135,11 +148,11 @@ void BUT_init(void){
 	pio_set_input(BUT_PIO, BUT_PIN_MASK, PIO_PULLUP | PIO_DEBOUNCE);
 
 	/* config. interrupcao em borda de descida no botao do kit */
-	/* indica funcao (but_Handler) a ser chamada quando houver uma interrupï¿½ï¿½o */
+	/* indica funcao (but_Handler) a ser chamada quando houver uma interrupção */
 	pio_enable_interrupt(BUT_PIO, BUT_PIN_MASK);
 	pio_handler_set(BUT_PIO, BUT_PIO_ID, BUT_PIN_MASK, PIO_IT_FALL_EDGE, Button1_Handler);
 
-	/* habilita interrupï¿½cï¿½o do PIO que controla o botao */
+	/* habilita interrupçcão do PIO que controla o botao */
 	/* e configura sua prioridade                        */
 	NVIC_EnableIRQ(BUT_PIO_ID);
 	NVIC_SetPriority(BUT_PIO_ID, 1);
@@ -165,7 +178,7 @@ void TC_init(Tc * TC, int ID_TC, int TC_CHANNEL, int freq){
 	uint32_t channel = 1;
 
 	/* Configura o PMC */
-	/* O TimerCounter ï¿½ meio confuso
+	/* O TimerCounter é meio confuso
 	o uC possui 3 TCs, cada TC possui 3 canais
 	TC0 : ID_TC0, ID_TC1, ID_TC2
 	TC1 : ID_TC3, ID_TC4, ID_TC5
@@ -173,13 +186,13 @@ void TC_init(Tc * TC, int ID_TC, int TC_CHANNEL, int freq){
 	*/
 	pmc_enable_periph_clk(ID_TC);
 
-	/** Configura o TC para operar em  4Mhz e interrupï¿½cï¿½o no RC compare */
+	/** Configura o TC para operar em  4Mhz e interrupçcão no RC compare */
 	tc_find_mck_divisor(freq, ul_sysclk, &ul_div, &ul_tcclks, ul_sysclk);
 	tc_init(TC, TC_CHANNEL, ul_tcclks | TC_CMR_CPCTRG);
 	tc_write_rc(TC, TC_CHANNEL, (ul_sysclk / ul_div) / freq);
 
-	/* Configura e ativa interrupï¿½cï¿½o no TC canal 0 */
-	/* Interrupï¿½ï¿½o no C */
+	/* Configura e ativa interrupçcão no TC canal 0 */
+	/* Interrupção no C */
 	NVIC_EnableIRQ((IRQn_Type) ID_TC);
 	tc_enable_interrupt(TC, TC_CHANNEL, TC_IER_CPCS);
 
@@ -225,24 +238,24 @@ int main(void){
 	/* Configura Leds */
 	LED_init(0);
 
-	/* Configura os botï¿½es */
+	/* Configura os botões */
 	BUT_init();
 
 	/** Configura RTC */
 	RTC_init();
 
+	/* Entrar em modo sleep */
 	/* configura alarme do RTC */
 	rtc_set_date_alarm(RTC, 1, MOUNTH, 1, DAY);
-	rtc_set_time_alarm(RTC, 1, HOUR, 1, MINUTE+1, 1, SECOND);
-
+	rtc_set_time_alarm(RTC, 1, HOUR, 1, MINUTE, 1, SECOND+10);// set wait time
+	
 	/** Configura timer TC0, canal 1 */
-	TC_init(TC0, ID_TC1, 1, 4);
-
+	TC_init(TC0, ID_TC1, 1, 60);///fps
+	
 
 	while (1) {
-		// entra em sleep
+		
 		pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
-
 	}
 
 }
